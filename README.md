@@ -7,3 +7,5 @@ Files:
 - "trust_voting_ab7.html": rendered HTML output  
 
 Data source: Arab Barometer Wave VII.
+
+Mise à jour.
