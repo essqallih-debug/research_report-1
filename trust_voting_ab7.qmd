@@ -1,0 +1,158 @@
+---
+title: "Trust in Government and Political Participation"
+author: "Houda ES-SQALLI"
+format: 
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    css: styles.css
+editor: visual
+---
+# Trust in Government and Political Participation
+
+## Research Question and Motivation
+
+Trust in government is a key component of institutional legitimacy and political stability. Existing research generally finds a positive relationship between institutional trust and political participation, particularly voting (Levi & Stoker, 2000). From this perspective, individuals who trust political institutions are more likely to engage in formal political processes.
+
+At the same time, the relationship between voting and trust is not straightforward. In many contexts, citizens may vote despite low levels of trust, for example to express dissatisfaction or to support political change. Similarly, abstention may reflect political disengagement, but it can also result from deep distrust in political institutions.
+
+This creates an empirical question rather than a clear prediction: do voters systematically report higher levels of trust in government than non-voters, or can electoral participation coexist with low institutional trust? Using data from the Arab Barometer, this report examines differences in reported trust in the national government between individuals who voted in the last national election and those who did not.
+
+
+## Hypothesis
+
+**H1.** Individuals who report having voted in the last national election will report higher levels of trust in the national government than non-voters.
+
+This hypothesis follows the conventional view that electoral participation reflects political engagement and confidence in political institutions. At the same time, voting may also occur in contexts of dissatisfaction or protest, suggesting that the relationship between voting and trust may not be uniformly positive.
+
+
+## Data Source
+
+The analysis uses data from Arab Barometer Wave VII (2021–2022), a cross-national public opinion survey covering multiple countries in the Middle East and North Africa. The survey measures political attitudes, institutional trust, and political behavior using standardized questionnaires and nationally representative samples.
+
+Wave VII is particularly relevant because it captures political attitudes in the period following major political and economic disruptions in the region, including the COVID-19 pandemic. This timing makes it well suited to examine contemporary patterns of political trust and participation.
+
+The analysis pools respondents across all available countries in the dataset. This descriptive approach focuses on overall patterns in the relationship between voting behavior and trust in government, rather than country-specific dynamics, which may vary substantially across contexts and are left for future inferential analysis.
+
+
+### Variables Used
+
+- **Trust in national government (Q409)** : six-point ordinal scale, where higher values indicate higher levels of trust  
+- **Voted in last national election (Q501)** : binary indicator of electoral participation  
+
+Trust in the national government is the dependent variable. Electoral participation, measured by whether the respondent voted in the last national election, is the main independent variable.
+
+
+## Data Preparation
+
+```{r, message=FALSE}
+#setup
+set.seed(123)
+
+library(dplyr)
+library(knitr)
+library(ggplot2)
+```
+
+```{r}
+#load dataset
+data <- read.csv("AB7_ENG_Release_Version6.csv", stringsAsFactors = FALSE)
+```
+The dataset is stored locally in the same directory as the Quarto file to ensure reproducibility.
+
+
+## Data Cleaning and Variable Construction
+
+The analytic sample is restricted to respondents with valid responses on both key variables.
+
+Sampling weights are available in the dataset but are not applied at this descriptive stage.
+```{r}
+clean <- data %>%
+  filter(Q501 %in% c(1,2),
+         Q409 %in% 1:6) %>%
+  mutate(
+    voted = ifelse(Q501 == 1, "Voted", "Did not vote"),
+    trust = Q409
+  )
+```
+Country-specific missing and refusal codes were excluded by restricting the analysis to valid response categories defined in the codebook.
+
+
+## Sample Description
+This section reports the analytic sample after cleaning.
+```{r}
+# Sample size
+dim(clean)
+
+# Group counts
+table(clean$voted)
+
+# Trust distribution
+summary(clean$trust)
+```
+Thus, the final analytic sample includes 26,034 respondents. Non-voters represent the majority of the sample, reflecting low reported electoral participation across the surveyed contexts.
+
+
+## Descriptive Statistics
+Descriptive statistics are computed separately by voting status.
+```{r}
+desc_table <- clean %>%
+  group_by(voted) %>%
+  summarise(
+    N = n(),
+    Mean = round(mean(trust),2),
+    SD = round(sd(trust),2),
+    Median = median(trust),
+    Min = min(trust),
+    Max = max(trust)
+  )
+
+kable(desc_table, caption = "Descriptive statistics of trust in government by voting status")
+```
+**Table 1** reports group size, central tendency, and dispersion measures. Non-voters represent the large majority of the analytic sample. Mean trust is lower among respondents who reported voting, and dispersion is also slightly smaller in that group. 
+
+Because trust is measured on an ordinal scale, medians and distributions are particularly informative; means are reported for completeness.
+
+
+## Visualization
+```{r}
+#prepare data for percentage distribution plot
+plot_data <- clean %>%
+  count(voted, trust) %>%
+  group_by(voted) %>%
+  mutate(percent = n / sum(n))
+
+#plot
+ggplot(plot_data, aes(x = voted, y = percent, fill = factor(trust))) +
+  geom_col(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(
+    title = "Distribution of Trust in Government by Voting Status",
+    x = "Voting status",
+    y = "Percentage of respondents",
+    fill = "Trust in government"
+  ) +
+  theme_minimal()
+```
+**Figure 1** displays the distribution of trust in government by voting status. Because trust is measured on an ordinal scale, the figure emphasizes the relative frequency of each response category rather than summary statistics. This visualization allows for a direct comparison of trust distributions between voters and non-voters without imposing interval-scale assumptions.
+
+## Preliminary Interpretation
+Descriptive results indicate a difference in reported trust between voters and non-voters. Contrary to the initial hypothesis, average trust appears lower among respondents who reported voting. This pattern is based on raw descriptive comparisons and does not account for potential confounding factors. 
+
+One possible interpretation is that electoral participation in these contexts may reflect protest or dissatisfaction rather than confidence in government.
+
+No causal interpretation is made at this stage.
+
+## Limits of Descriptive Analysis
+Descriptive statistics identify patterns but do not establish causal relationships. Observed differences between voters and non-voters may be explained by other individual or contextual factors such as age, education, or country-level variation. These factors will be incorporated as control variables in the inferential stage of the analysis.
+
+## References
+Levi, M., & Stoker, L. (2000). Political Trust and Trustworthiness. Annual Review of Political Science, 3, 475–507.
+
+Newton, K., & Norris, P. (2000). Confidence in Public Institutions. In Disaffected Democracies.
+
+```{r}
+#information about the R session
+sessionInfo()
+```
