@@ -1,0 +1,375 @@
+---
+title: "Trust in Government and Political Participation"
+author: Houda ES-SQALLI
+date: 2 February 2026
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    toc-location: right
+    embed-resources: true
+editor: visual
+---
+
+```{=html}
+<style>
+p {
+  text-align: justify;
+}
+</style>
+```
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+)
+```
+
+# Trust in Government and Political Participation
+
+## Research Question and Motivation
+
+Trust in government is a key component of institutional legitimacy and political stability. Existing research generally finds a positive relationship between institutional trust and political participation, particularly voting (Levi & Stoker, 2000). From this perspective, individuals who trust political institutions are more likely to engage in formal political processes.
+
+At the same time, the relationship between voting and trust is not straightforward. In many contexts, citizens may vote despite low levels of trust, for example to express dissatisfaction or to support political change. Similarly, abstention may reflect political disengagement, but it can also result from deep distrust in political institutions.
+
+This creates an empirical question: do voters systematically report higher levels of trust in government than non-voters, or can electoral participation coexist with low institutional trust? Using data from the Arab Barometer, this report examines differences in reported trust in the national government between individuals who voted in the last national election and those who did not vote.
+
+## Hypothesis
+
+**H1.** Individuals who report having voted in the last national election will report higher levels of trust in the national government than non-voters.
+
+This hypothesis follows the conventional view that electoral participation reflects political engagement and confidence in political institutions. At the same time, voting may also occur in contexts of dissatisfaction or protest, suggesting that the relationship between voting and trust may not be uniformly positive.
+
+
+## Data Source
+
+The analysis uses data from Arab Barometer Wave VII (2021–2022), a cross-national public opinion survey covering multiple countries in the Middle East and North Africa. The survey measures political attitudes, institutional trust, and political behavior using standardized questionnaires and nationally representative samples.
+
+Wave VII is particularly relevant because it captures political attitudes in the period following major political and economic disruptions in the region, including the COVID-19 pandemic. This timing makes it well suited to examine contemporary patterns of political trust and participation.
+
+The pooled analytic sample includes respondents from **12 countries** surveyed in Arab Barometer Wave VII. While pooling increases statistical power and allows for an overall regional comparison, it may also obscure meaningful country-specific variation in both electoral participation and institutional trust.
+
+### Variables Used
+
+- **Trust in national government (Q201A_1)**: four-point ordinal scale measuring respondents’ trust in the national government (Council of Ministers), ranging from a great deal of trust to no trust at all. The variable is recoded so that higher values correspond to higher trust (1 = lowest trust, 4 = highest trust).
+- **Voted in last national election (Q301A)**: indicator of electoral participation, coded as “Voted” versus “Did not vote”.
+
+Trust in the national government is the dependent variable, and electoral participation is the main independent variable. Trust is treated as an ordinal measure throughout the analysis.
+
+## Data Preparation
+
+```{r, message=FALSE}
+#setup
+set.seed(123)
+
+library(dplyr)
+library(knitr)
+library(ggplot2)
+```
+
+```{r}
+#load dataset
+data <- read.csv("AB7_ENG_Release_Version6.csv", stringsAsFactors = FALSE)
+```
+
+The dataset is stored locally in the same directory as the Quarto file to ensure reproducibility.
+
+```{r, echo=FALSE}
+grep("Q201", names(data), value = TRUE)
+grep("Q301", names(data), value = TRUE)
+```
+
+## Data Cleaning and Variable Construction
+
+Responses coded as refusals (98) or “don’t know” (99) were treated as missing and excluded from the analysis. The analytic sample was restricted to respondents with valid responses on both trust in government (Q201A_1, categories 1–4) and voting status (Q301A, voted vs. did not vote). After excluding missing and invalid responses, the final analytic sample includes 20,034 respondents.
+
+This corresponds to the complete-case sample used throughout the descriptive and regression analyses.
+
+```{r}
+clean <- data %>%
+  
+  # Keep only valid responses (exclude DK/Refused)
+  filter(
+    Q301A %in% c(1, 2),
+    Q201A_1 %in% c(1, 2, 3, 4)
+  ) %>%
+
+  # Construct analysis variables
+  mutate(
+    
+    # Voting status (binary + labeled)
+    voted = factor(
+  ifelse(Q301A == 1, "Voted", "Did not vote"),
+  levels = c("Did not vote", "Voted")
+),
+    
+    # Trust recoded so higher values = higher trust
+    # Original: 1 = great deal of trust, 4 = no trust at all
+    trust = 5 - Q201A_1
+    
+  )
+```
+
+
+## Sample Description
+
+This section reports the analytic sample after cleaning.
+
+```{r}
+#sample size and share of voters
+sample_table <- clean %>%
+  summarise(
+    N = n(),
+    Share_voted = round(mean(voted == "Voted") * 100, 2)
+  )
+
+kable(sample_table,
+      caption = "Sample size and percentage of respondents who reported voting")
+```
+
+Thus, the final analytic sample includes 20,034 respondents. Reported turnout in the analytic sample is close to half of respondents. Responses coded as “Don’t know” or “Refused” were excluded from the analytic sample.
+
+Reported turnout may still differ from official election participation rates, as some respondents may be reluctant to disclose political behavior or may misreport voting in survey settings. This should be kept in mind when interpreting comparisons between voters and non-voters.
+
+
+```{r}
+# Distribution of trust responses
+trust_dist <- clean %>%
+  count(trust) %>%
+  mutate(percent = round(n / sum(n) * 100, 2))
+
+kable(trust_dist,
+      caption = "Distribution of trust in government (recoded scale)")
+```
+**Table 2** reports the distribution of the recoded trust variable. Responses are heavily concentrated in the lowest trust category: about 45% of respondents report no trust at all, while fewer than 10% report the highest level of trust. This indicates a strongly skewed and non-normal distribution.
+
+Because trust is measured on a four-point ordinal scale, it should not be treated as a continuous normally distributed outcome. Rather than applying a log transformation, a more appropriate approach in future work would be to use methods designed for ordinal outcomes, such as ordinal regression models.
+
+Finally, around half of respondents in the analytic sample report having voted in the last national election. While this reported turnout is not extremely low, it may still differ from official participation rates across countries and could be affected by reporting biases or cross-national variation in electoral contexts. This limitation should be kept in mind when interpreting differences in trust between voters and non-voters.
+
+## Descriptive Statistics
+
+Descriptive statistics are computed separately by voting status.
+
+```{r}
+desc_table <- clean %>%
+  group_by(voted) %>%
+  summarise(
+    N = n(),
+    Mean = round(mean(trust),2),
+    SD = round(sd(trust),2),
+    Median = median(trust),
+    Min = min(trust),
+    Max = max(trust)
+  )
+
+kable(desc_table, caption = "Descriptive statistics of trust in government by voting status")
+```
+
+**Table 1** reports group size, measures of central tendency, and dispersion for voters and non-voters. Non-voters represent the large majority of the analytic sample. Reported trust is slightly higher among respondents who said they voted, although the difference between the two groups remains small.
+
+Because trust is measured on a four-point ordinal scale, medians and distributions are particularly informative. Means are reported for completeness but should be interpreted only as approximate summaries rather than precise interval-level differences.
+
+Only a small share of respondents report having voted. This reported turnout is substantially lower than official participation rates in most national elections, suggesting potential under-reporting of voting behavior. As a result, the group of self-reported voters may not be fully representative of the broader population, and comparisons between voters and non-voters should therefore be interpreted cautiously.
+
+
+## Visualization
+
+```{r}
+plot_data <- clean %>%
+  count(voted, trust) %>%
+  group_by(voted) %>%
+  mutate(percent = n / sum(n)) %>%
+  mutate(
+    trust_f = factor(
+      trust,
+      levels = c(1, 2, 3, 4),
+      labels = c(
+        "No trust at all",
+        "Not a lot of trust",
+        "Quite a lot of trust",
+        "A great deal of trust"
+      ),
+      ordered = TRUE
+    )
+  )
+
+ggplot(clean, aes(x = trust, fill = factor(trust))) +
+  geom_bar() +
+  scale_x_continuous(
+    breaks = 1:4,
+    labels = c(
+      "No trust at all",
+      "Not a lot of trust",
+      "Quite a lot of trust",
+      "A great deal of trust"
+    )
+  ) +
+  scale_fill_brewer(palette = "Set2") +
+  labs(
+    title = "Distribution of Trust in Government",
+    x = NULL,
+    y = "Number of respondents",
+    fill = NULL
+  ) +
+  theme_minimal(base_size = 13) +
+  guides(fill = "none")
+```
+**Figure 1** shows that trust is not normally distributed, with responses concentrated in the lowest categories. Because trust is measured on a four-point ordinal scale, a log transformation is not particularly appropriate here. 
+
+A more suitable approach would be to treat trust as an ordinal outcome and consider an ordinal regression model in future work.
+
+
+```{r}
+ggplot(plot_data, aes(x = voted, y = percent, fill = trust_f)) +
+  geom_col(position = "fill", width = 0.7) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_brewer(palette = "Set2") +
+  labs(
+    title = "Trust in Government by Voting Status",
+    x = NULL,
+    y = "Percentage of respondents",
+    fill = "Trust in government"
+  ) + 
+  guides(fill = guide_legend(reverse = TRUE)) +
+  theme_minimal()
+
+```
+**Figure 2** compares trust distributions between voters and non-voters. Differences are modest but voters appear slightly more likely to report higher trust.
+
+
+## Preliminary Interpretation
+
+Taken together, the descriptive results suggest a small trust gap between voters and non-voters. However, given potential reporting bias in self-reported voting and the skewed distribution of trust, these patterns should be interpreted cautiously.
+
+No causal interpretation is made at this stage.
+
+
+## Limits of Descriptive Analysis
+
+Descriptive statistics highlight patterns but cannot establish causal relationships. Differences between voters and non-voters may reflect other individual or contextual factors, such as age or cross-national variation.
+
+A key limitation is that the share of respondents reporting that they voted is around 48% in the analytic sample. This figure may still differ from official turnout rates in some countries, suggesting that self-reported voting may be affected by measurement error or reluctance to disclose political behavior.
+
+In addition, turnout may be influenced by social desirability bias, as some respondents could overreport participation. This could blur the distinction between voters and non-voters and complicate interpretation.
+
+Finally, trust is measured on a four-point ordinal scale and is strongly skewed toward low values. For this reason, treating it as continuous is imperfect, and future work could rely on ordinal regression models or explore vote choice to better understand political selectivity among reported voters.
+
+
+## Inferential Analysis 
+To complement the descriptive patterns reported above, this section introduces simple linear regression models. These models provide an initial inferential assessment of whether the association between voting and trust persists after accounting for basic covariates and cross-national context.
+
+Since the data combine respondents from multiple national contexts, differences in political institutions and electoral environments across countries may shape both trust and participation. Future work could include country fixed effects or multilevel models to account for this heterogeneity.
+```{r, echo=FALSE}
+# Prepare age variable (done once)
+clean <- clean %>%
+  mutate(age = ifelse(Q1001 >= 9999, NA, Q1001))
+
+# Regression models
+model1 <- lm(trust ~ voted, data = clean)
+model2 <- lm(trust ~ voted + age, data = clean)
+model3 <- lm(trust ~ voted + age + factor(COUNTRY), data = clean)
+```
+
+Trust is treated as approximately continuous for simplicity, although it remains an ordinal measure.
+
+### Model 1: Baseline regression
+```{r, echo=FALSE}
+model1_table <- broom::tidy(model1) %>%
+  select(term, estimate, std.error, p.value) %>%
+  mutate(
+    term = case_when(
+      term == "(Intercept)" ~ "Non-voters (baseline)",
+      term == "votedVoted" ~ "Voted (vs. did not vote)",
+      TRUE ~ term
+    ),
+    p.value = ifelse(p.value < 0.001, "<0.001", round(p.value, 3))
+  ) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
+  rename(
+    Estimate = estimate,
+    `Std. Error` = std.error,
+    `P-value` = p.value
+  )
+kable(model1_table,
+      caption = "Model 1. Linear regression of trust on voting status")
+```
+**Model 1** confirms the descriptive pattern: respondents who report voting show slightly higher trust in government. The difference is statistically significant but very small (around 0.1 point on a four-point scale), so it should not be overstated.
+
+### Model 2: Adding age as a control
+```{r, echo=FALSE}
+model2_table <- broom::tidy(model2) %>%
+  select(term, estimate, std.error, p.value) %>%
+  mutate(
+    term = case_when(
+      term == "(Intercept)" ~ "Non-voters (baseline)",
+      term == "votedVoted" ~ "Voted (vs. did not vote)",
+      term == "age" ~ "Age",
+      TRUE ~ term
+    ),
+    p.value = ifelse(p.value < 0.001, "<0.001", round(p.value, 3))
+  ) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
+  rename(
+    Term = term,
+    Estimate = estimate,
+    `Std. Error` = std.error,
+    `P-value` = p.value
+  )
+
+kable(model2_table,
+      caption = "Model 2. Linear regression of trust on voting status controlling for age")
+```
+**Model 2** adds age as a control. The coefficient on voting remains positive and statistically significant, although still substantively small. Age is also positively associated with trust, but the estimated effect is modest in magnitude.
+
+
+### Model 3: Including country fixed effects
+```{r, echo=FALSE}
+model3_table <- broom::tidy(model3) %>%
+  filter(term %in% c("(Intercept)", "votedVoted", "age")) %>%
+  select(term, estimate, std.error, p.value) %>%
+  mutate(
+    term = case_when(
+      term == "(Intercept)" ~ "Non-voters (baseline)",
+      term == "votedVoted" ~ "Voted (vs. did not vote)",
+      term == "age" ~ "Age",
+      TRUE ~ term
+    ),
+    p.value = ifelse(p.value < 0.001, "<0.001", round(p.value, 3))
+  ) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
+  rename(
+    Term = term,
+    Estimate = estimate,
+    `Std. Error` = std.error,
+    `P-value` = p.value
+  )
+
+kable(model3_table,
+      caption = "Model 3. Linear regression of trust on voting status with country fixed effects")
+```
+**Model 3** includes country fixed effects to account for systematic cross-national differences in both institutional trust and electoral participation. The coefficient on voting remains positive and statistically significant, though still small in magnitude. Age is no longer statistically significant once country fixed effects are included, suggesting that part of the age–trust association may reflect cross-national variation.
+
+Country dummy coefficients are omitted from the table for readability.
+
+Including country fixed effects reduces the risk that the estimated association is driven by cross-national differences rather than individual-level behavior.
+
+
+*Note: Country fixed effects are included in the model but omitted from the table for readability.*
+
+
+## Conclusion
+
+Overall, both descriptive statistics and regression models point to a small positive association between voting and trust in government. However, the effect is substantively limited and cannot be interpreted causally, especially given potential measurement error in self-reported voting and possible reporting bias. Future work could explore cross-country differences and vote choice to better understand who the self-reported voters are.
+
+
+## References
+
+Levi, M., & Stoker, L. (2000). Political Trust and Trustworthiness. Annual Review of Political Science, 3, 475–507.
+
+Newton, K., & Norris, P. (2000). Confidence in Public Institutions. In Disaffected Democracies.
+
